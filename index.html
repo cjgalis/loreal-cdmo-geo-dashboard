@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEO Lab: Test & Learn Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .chart-container { position: relative; width: 100%; height: 280px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .row-hover:hover { background-color: #f8fafc; cursor: pointer; }
+    .metric-bar { height: 6px; border-radius: 3px; transition: width 0.6s ease; }
+    .kpi-mini { transition: all 0.15s ease; }
+    .kpi-mini:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-700">
+
+<div id="app" class="min-h-screen">
+
+  <!-- TOP NAV BAR -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-3">
+          <button onclick="showView('list')" class="flex items-center gap-2">
+            <span class="text-lg font-bold text-slate-900 tracking-tight">GEO Lab</span>
+            <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">Test & Learn</span>
+          </button>
+          <span id="breadcrumb" class="text-slate-400 text-sm hidden sm:inline"></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex items-center gap-1 text-xs text-slate-400">
+            <span>L'Oreal CDMO</span>
+            <span class="mx-1">|</span>
+            <span>Stella Rising</span>
+          </div>
+          <div id="sync-indicator" class="hidden items-center gap-1.5 text-xs text-slate-400 cursor-help" title="Connected to Asana">
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            <span id="sync-label">Asana</span>
+          </div>
+          <button onclick="toggleSettings()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors" title="Data Source Settings">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button onclick="showView('list')" id="btn-list" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white">All Tests</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LIST VIEW -->
+  <div id="view-list" class="fade-in">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      <!-- Summary Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-xl border border-slate-200 p-4 kpi-mini">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Tests</p>
+          <p class="text-3xl font-black text-slate-900 mt-1" id="stat-total">0</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 kpi-mini">
+          <p class="text-[10px] font-bold text-green-600 uppercase tracking-wider">Running</p>
+          <p class="text-3xl font-black text-green-700 mt-1" id="stat-running">0</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 kpi-mini">
+          <p class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Complete</p>
+          <p class="text-3xl font-black text-blue-700 mt-1" id="stat-complete">0</p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4 kpi-mini">
+          <p class="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Planned</p>
+          <p class="text-3xl font-black text-amber-700 mt-1" id="stat-planned">0</p>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-500 uppercase">Status:</label>
+          <select id="filter-status" onchange="renderTable()" class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none">
+            <option value="all">All</option>
+            <option value="Running">Running</option>
+            <option value="Planned">Planned</option>
+            <option value="Complete">Complete</option>
+            <option value="Paused">Paused</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-500 uppercase">Brand:</label>
+          <select id="filter-brand" onchange="renderTable()" class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none">
+            <option value="all">All Brands</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-500 uppercase">Engine:</label>
+          <select id="filter-engine" onchange="renderTable()" class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none">
+            <option value="all">All Engines</option>
+          </select>
+        </div>
+        <div class="ml-auto">
+          <input id="search-box" type="text" placeholder="Search tests..." oninput="renderTable()" class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none w-48">
+        </div>
+      </div>
+
+      <!-- Tests Table -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50/50">
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-8">#</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Test Name</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Brand</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Engine(s)</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Visibility</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Position</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Accuracy</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">SoV</th>
+                <th class="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Due</th>
+              </tr>
+            </thead>
+            <tbody id="tests-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PANEL -->
+  <div id="settings-overlay" class="hidden fixed inset-0 bg-black/40 z-[60] flex items-center justify-center" onclick="if(event.target===this)toggleSettings()">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden fade-in">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <h3 class="font-bold text-slate-800">Data Source Settings</h3>
+        <button onclick="toggleSettings()" class="text-slate-400 hover:text-slate-600">&times;</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <div>
+          <p class="text-sm text-slate-600 mb-4">Connect to Asana to sync test data live, or use the built-in sample data.</p>
+          <div class="flex gap-2 mb-5">
+            <button onclick="setDataSource('sample')" id="btn-src-sample" class="flex-1 px-4 py-2 text-sm font-semibold rounded-lg border-2 transition-colors">Sample Data</button>
+            <button onclick="setDataSource('asana')" id="btn-src-asana" class="flex-1 px-4 py-2 text-sm font-semibold rounded-lg border-2 transition-colors">Asana API</button>
+          </div>
+        </div>
+        <div id="asana-settings" class="hidden space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Asana Personal Access Token</label>
+            <input id="input-asana-pat" type="password" placeholder="1/12345678..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none font-mono">
+            <p class="text-[11px] text-slate-400 mt-1">Create at: <span class="font-mono">app.asana.com/0/developer-console</span></p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Project GID</label>
+            <input id="input-asana-project" type="text" placeholder="1213363973380302" value="1213363973380302" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none font-mono">
+            <p class="text-[11px] text-slate-400 mt-1">The GID of your "GEO Test & Learn" Asana project</p>
+          </div>
+          <button onclick="testAsanaConnection()" id="btn-test-asana" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors">
+            Test Connection & Sync
+          </button>
+          <div id="asana-status" class="hidden text-sm p-3 rounded-lg"></div>
+          <details class="text-xs text-slate-500 mt-2">
+            <summary class="cursor-pointer font-semibold text-slate-600 hover:text-indigo-600">Asana Task Format Guide</summary>
+            <pre class="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-x-auto text-[11px] leading-relaxed font-mono whitespace-pre">Test ID: TEST-001
+Brand: CeraVe
+Status: Running
+Engines: Perplexity, ChatGPT, Gemini
+Content Type: Product Detail Pages
+URLs Impacted: 8
+Owner: Chris Galis
+Start Date: 2026-02-01
+
+--- HYPOTHESIS ---
+IF WE: Add authoritative citations to product pages
+TO: /skincare/anti-aging-serums
+THEN: AI engines will cite us as a primary source
+BECAUSE: LLMs prioritize verifiable data
+
+--- TARGETS ---
+Visibility: 60
+Position: 2
+Accuracy: 100
+Sentiment: 80
+SoV: 40
+
+--- BASELINE ---
+Visibility: 30
+Position: 4.2
+Accuracy: 85
+Sentiment: 71
+SoV: 15
+
+--- CURRENT ---
+Visibility: 48
+Position: 1.8
+Accuracy: 98
+Sentiment: 82
+SoV: 36</pre>
+          </details>
+        </div>
+        <div id="sample-settings" class="text-sm text-slate-500">
+          <p>Using <strong>12 built-in sample tests</strong> with demo data. Connect Asana to load live test data from your project.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL VIEW -->
+  <div id="view-detail" class="hidden fade-in">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+      <!-- Detail Header -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+        <div>
+          <button onclick="showView('list')" class="text-indigo-600 text-xs font-semibold hover:underline mb-2 inline-block">&larr; Back to All Tests</button>
+          <div class="flex items-center gap-2 mb-2">
+            <span id="detail-id-badge" class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider"></span>
+            <span id="detail-status-badge" class="text-[10px] font-bold px-2 py-1 rounded-full"></span>
+          </div>
+          <h2 id="detail-title" class="text-2xl md:text-3xl font-extrabold text-slate-900"></h2>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <div id="detail-day-badge" class="px-3 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded-full"></div>
+        </div>
+      </div>
+
+      <!-- KPI Quick Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="detail-kpi-cards"></div>
+
+      <!-- Two Column: Hypothesis + Context -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Hypothesis -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 px-5 py-3 text-white font-mono text-xs flex justify-between items-center">
+            <span>HYPOTHESIS_FRAMEWORK</span>
+            <span class="text-indigo-400">GEO TEST</span>
+          </div>
+          <div class="p-6 space-y-5" id="detail-hypothesis"></div>
+        </div>
+
+        <!-- Context Card -->
+        <div class="bg-slate-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+          <div class="relative z-10">
+            <h3 class="font-bold text-indigo-300 mb-4">Test Context</h3>
+            <div id="detail-context" class="space-y-3 text-sm"></div>
+          </div>
+          <div id="detail-bg-number" class="absolute -right-4 -bottom-4 text-slate-800 opacity-50 font-black text-7xl select-none"></div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-800 mb-4">GEO Performance Scorecard</h3>
+          <div class="chart-container">
+            <canvas id="detail-radar"></canvas>
+          </div>
+          <p class="text-xs text-center text-slate-400 mt-3">Baseline (gray) vs Current (indigo)</p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-800 mb-4">KPI Delta Analysis</h3>
+          <div class="chart-container">
+            <canvas id="detail-bar"></canvas>
+          </div>
+          <p class="text-xs text-center text-slate-400 mt-3">Change from baseline to current measurement</p>
+        </div>
+      </div>
+
+      <!-- KPI Matrix -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-5 border-b border-slate-100">
+          <h3 class="font-bold text-slate-800">KPI Measurement Matrix</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <tr>
+                <th class="px-5 py-3">Metric</th>
+                <th class="px-5 py-3">Baseline</th>
+                <th class="px-5 py-3">Current</th>
+                <th class="px-5 py-3">Target</th>
+                <th class="px-5 py-3">Delta</th>
+                <th class="px-5 py-3">Progress</th>
+              </tr>
+            </thead>
+            <tbody id="detail-kpi-matrix" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// DATA LAYER
+// This JSON structure mirrors the Asana task format.
+// When you connect the Asana API, replace this array with
+// fetched task data parsed through parseAsanaTask().
+// ============================================================
+const TESTS = [
+  {
+    id: "TEST-001",
+    name: "Citation Density Impact on AI Source Carousel",
+    brand: "CeraVe",
+    status: "Running",
+    startDate: "2026-02-01",
+    dueDate: "2026-03-15",
+    durationDays: 30,
+    dayNumber: 18,
+    engines: ["Perplexity", "ChatGPT", "Gemini"],
+    contentType: "Product Detail Pages",
+    urlsImpacted: 8,
+    owner: "Chris Galis",
+    hypothesis: {
+      ifWe: "Add authoritative statistics and peer-reviewed citations to core product pages",
+      to: "/skincare/anti-aging-serums, /skincare/vitamin-c-collection",
+      then: "AI engines will cite us as a primary source for anti-aging skincare queries",
+      because: "LLMs prioritize verifiable numerical data and authoritative formatting in technical summaries"
+    },
+    kpiTargets: {
+      visibility: 60,
+      position: 2,
+      accuracy: 100,
+      sentiment: 80,
+      sov: 40
+    },
+    baseline: { visibility: 30, position: 4.2, accuracy: 85, sentiment: 71, sov: 15 },
+    current:  { visibility: 48, position: 1.8, accuracy: 98, sentiment: 82, sov: 36 }
+  },
+  {
+    id: "TEST-002",
+    name: "Schema Markup for Product Claim Verification",
+    brand: "La Roche-Posay",
+    status: "Running",
+    startDate: "2026-02-05",
+    dueDate: "2026-03-20",
+    durationDays: 30,
+    dayNumber: 14,
+    engines: ["Perplexity", "SearchGPT"],
+    contentType: "Ingredient Education",
+    urlsImpacted: 12,
+    owner: "Chris Galis",
+    hypothesis: {
+      ifWe: "Implement ClaimReview and Product schema markup on ingredient efficacy pages",
+      to: "/ingredients/hyaluronic-acid, /ingredients/retinol, /ingredients/niacinamide",
+      then: "AI engines will accurately quote our clinical claims without hallucination",
+      because: "Structured data provides machine-readable fact anchors that reduce LLM paraphrasing errors"
+    },
+    kpiTargets: { visibility: 70, position: 3, accuracy: 100, sentiment: 85, sov: 40 },
+    baseline: { visibility: 40, position: 3.1, accuracy: 72, sentiment: 68, sov: 22 },
+    current:  { visibility: 58, position: 2.1, accuracy: 96, sentiment: 81, sov: 33 }
+  },
+  {
+    id: "TEST-003",
+    name: "FAQ Fluency Optimization for Conversational Queries",
+    brand: "Garnier",
+    status: "Planned",
+    startDate: "2026-03-01",
+    dueDate: "2026-04-01",
+    durationDays: 30,
+    dayNumber: 0,
+    engines: ["ChatGPT", "Gemini", "Copilot"],
+    contentType: "FAQ / Help Center",
+    urlsImpacted: 6,
+    owner: "Team Lead",
+    hypothesis: {
+      ifWe: "Rewrite FAQ sections in natural conversational format with bulleted claims",
+      to: "/help/skincare-routine-guide, /help/sunscreen-faq",
+      then: "AI engines will prefer our content for question-style prompts",
+      because: "Conversational formatting aligns with how LLMs chunk and retrieve information for Q&A responses"
+    },
+    kpiTargets: { visibility: 50, position: 2, accuracy: 95, sentiment: 80, sov: 35 },
+    baseline: { visibility: 15, position: 5.8, accuracy: 80, sentiment: 62, sov: 8 },
+    current:  { visibility: 15, position: 5.8, accuracy: 80, sentiment: 62, sov: 8 }
+  },
+  {
+    id: "TEST-004",
+    name: "Internal Linking Architecture for Topic Authority",
+    brand: "CeraVe",
+    status: "Running",
+    startDate: "2026-02-10",
+    dueDate: "2026-03-25",
+    durationDays: 30,
+    dayNumber: 9,
+    engines: ["Perplexity", "Gemini"],
+    contentType: "Blog / Editorial",
+    urlsImpacted: 22,
+    owner: "Content Team",
+    hypothesis: {
+      ifWe: "Create hub-and-spoke internal linking between ingredient pages and product pages",
+      to: "/skincare/ceramides-guide (hub) linking to 12 product pages",
+      then: "AI engines will recognize our domain as the topical authority for ceramide skincare",
+      because: "Dense internal linking signals topical depth and entity relationships to crawlers"
+    },
+    kpiTargets: { visibility: 55, position: 2, accuracy: 95, sentiment: 78, sov: 38 },
+    baseline: { visibility: 25, position: 4.5, accuracy: 88, sentiment: 65, sov: 12 },
+    current:  { visibility: 38, position: 3.2, accuracy: 91, sentiment: 72, sov: 24 }
+  },
+  {
+    id: "TEST-005",
+    name: "Expert Author Bylines & E-E-A-T Signals",
+    brand: "La Roche-Posay",
+    status: "Complete",
+    startDate: "2026-01-05",
+    dueDate: "2026-02-05",
+    durationDays: 30,
+    dayNumber: 30,
+    engines: ["Perplexity", "ChatGPT", "Gemini"],
+    contentType: "Blog / Editorial",
+    urlsImpacted: 15,
+    owner: "PR Team",
+    hypothesis: {
+      ifWe: "Add dermatologist bylines, credentials, and author schema to all clinical content",
+      to: "/dermatologist-recommended, /clinical-studies hub pages",
+      then: "AI engines will preferentially cite our content as medically authoritative",
+      because: "E-E-A-T signals (Experience, Expertise, Authority, Trust) are weighted heavily for health queries"
+    },
+    kpiTargets: { visibility: 65, position: 2, accuracy: 100, sentiment: 90, sov: 45 },
+    baseline: { visibility: 35, position: 3.8, accuracy: 78, sentiment: 70, sov: 18 },
+    current:  { visibility: 72, position: 1.5, accuracy: 99, sentiment: 91, sov: 48 }
+  },
+  {
+    id: "TEST-006",
+    name: "Video Transcript Optimization for Multi-Modal AI",
+    brand: "Maybelline",
+    status: "Running",
+    startDate: "2026-02-12",
+    dueDate: "2026-03-28",
+    durationDays: 30,
+    dayNumber: 7,
+    engines: ["Gemini", "Copilot"],
+    contentType: "Video / YouTube",
+    urlsImpacted: 10,
+    owner: "Video Team",
+    hypothesis: {
+      ifWe: "Add structured transcripts with timestamp markers and product callouts to tutorial videos",
+      to: "/tutorials/smokey-eye, /tutorials/foundation-matching (YouTube + site embeds)",
+      then: "Multi-modal AI engines will surface our video content in beauty how-to queries",
+      because: "Gemini and Copilot index video transcripts and prioritize structured multimedia content"
+    },
+    kpiTargets: { visibility: 40, position: 3, accuracy: 90, sentiment: 75, sov: 30 },
+    baseline: { visibility: 10, position: 6.5, accuracy: 70, sentiment: 55, sov: 5 },
+    current:  { visibility: 18, position: 5.2, accuracy: 78, sentiment: 62, sov: 11 }
+  },
+  {
+    id: "TEST-007",
+    name: "Comparison Content Strategy vs. Competitor Brands",
+    brand: "CeraVe",
+    status: "Planned",
+    startDate: "2026-03-10",
+    dueDate: "2026-04-10",
+    durationDays: 30,
+    dayNumber: 0,
+    engines: ["Perplexity", "ChatGPT", "SearchGPT"],
+    contentType: "Comparison Pages",
+    urlsImpacted: 8,
+    owner: "Content Team",
+    hypothesis: {
+      ifWe: "Create objective comparison pages (CeraVe vs Cetaphil, CeraVe vs Eucerin) with structured data",
+      to: "/compare/cerave-vs-cetaphil, /compare/cerave-vs-eucerin",
+      then: "AI engines will reference our comparison data when users ask brand-vs-brand questions",
+      because: "LLMs seek balanced comparison content and will cite the most structured source for versus queries"
+    },
+    kpiTargets: { visibility: 50, position: 1, accuracy: 100, sentiment: 85, sov: 50 },
+    baseline: { visibility: 20, position: 5.0, accuracy: 65, sentiment: 58, sov: 10 },
+    current:  { visibility: 20, position: 5.0, accuracy: 65, sentiment: 58, sov: 10 }
+  },
+  {
+    id: "TEST-008",
+    name: "Localized Content for Regional AI Responses",
+    brand: "Garnier",
+    status: "Planned",
+    startDate: "2026-03-15",
+    dueDate: "2026-04-15",
+    durationDays: 30,
+    dayNumber: 0,
+    engines: ["ChatGPT", "Gemini"],
+    contentType: "Localized Landing Pages",
+    urlsImpacted: 20,
+    owner: "Localization Team",
+    hypothesis: {
+      ifWe: "Create market-specific content with local ingredient regulations and availability data",
+      to: "/fr/soins-solaires, /de/sonnenpflege, /es/proteccion-solar",
+      then: "Regional AI queries will surface our localized pages over generic English content",
+      because: "LLMs increasingly prioritize language-matched and regionally relevant content"
+    },
+    kpiTargets: { visibility: 45, position: 2, accuracy: 95, sentiment: 78, sov: 35 },
+    baseline: { visibility: 8, position: 7.2, accuracy: 60, sentiment: 50, sov: 3 },
+    current:  { visibility: 8, position: 7.2, accuracy: 60, sentiment: 50, sov: 3 }
+  },
+  {
+    id: "TEST-009",
+    name: "Clinical Study Data Integration",
+    brand: "La Roche-Posay",
+    status: "Running",
+    startDate: "2026-02-08",
+    dueDate: "2026-03-22",
+    durationDays: 30,
+    dayNumber: 11,
+    engines: ["Perplexity", "ChatGPT"],
+    contentType: "Clinical Evidence Pages",
+    urlsImpacted: 9,
+    owner: "Medical Affairs",
+    hypothesis: {
+      ifWe: "Embed clinical trial data with DOI links and structured result tables",
+      to: "/clinical-evidence/retinol-study-2024, /clinical-evidence/niacinamide-tolerance",
+      then: "AI engines will cite our clinical data with high accuracy and authority",
+      because: "Peer-reviewed data with DOI anchors provides the highest-trust signals for LLM citations"
+    },
+    kpiTargets: { visibility: 60, position: 1, accuracy: 100, sentiment: 90, sov: 45 },
+    baseline: { visibility: 32, position: 3.5, accuracy: 82, sentiment: 72, sov: 20 },
+    current:  { visibility: 51, position: 1.9, accuracy: 97, sentiment: 86, sov: 37 }
+  },
+  {
+    id: "TEST-010",
+    name: "Product Review Aggregation Schema",
+    brand: "Maybelline",
+    status: "Paused",
+    startDate: "2026-01-20",
+    dueDate: "2026-02-28",
+    durationDays: 30,
+    dayNumber: 15,
+    engines: ["ChatGPT", "SearchGPT"],
+    contentType: "Product Pages",
+    urlsImpacted: 30,
+    owner: "Ecomm Team",
+    hypothesis: {
+      ifWe: "Aggregate and structure user reviews with AggregateRating schema and sentiment tags",
+      to: "/products/fit-me-foundation, /products/lash-sensational (top 30 SKUs)",
+      then: "AI engines will include user sentiment data in product recommendation responses",
+      because: "User-generated review signals provide social proof that LLMs weight for recommendation queries"
+    },
+    kpiTargets: { visibility: 50, position: 2, accuracy: 90, sentiment: 80, sov: 35 },
+    baseline: { visibility: 28, position: 4.0, accuracy: 75, sentiment: 60, sov: 14 },
+    current:  { visibility: 34, position: 3.5, accuracy: 80, sentiment: 66, sov: 19 }
+  },
+  {
+    id: "TEST-011",
+    name: "Ingredient Safety FAQ for Regulatory Queries",
+    brand: "CeraVe",
+    status: "Running",
+    startDate: "2026-02-15",
+    dueDate: "2026-03-30",
+    durationDays: 30,
+    dayNumber: 4,
+    engines: ["Perplexity", "Gemini", "Copilot"],
+    contentType: "Safety / Regulatory",
+    urlsImpacted: 14,
+    owner: "Regulatory Team",
+    hypothesis: {
+      ifWe: "Create structured safety FAQ pages addressing common ingredient concern queries",
+      to: "/safety/is-retinol-safe, /safety/sunscreen-ingredients-explained",
+      then: "AI engines will cite our safety content instead of fear-based competitor articles",
+      because: "Balanced, factual safety content with citations outranks opinion-based content in health queries"
+    },
+    kpiTargets: { visibility: 55, position: 2, accuracy: 100, sentiment: 85, sov: 40 },
+    baseline: { visibility: 18, position: 5.2, accuracy: 78, sentiment: 58, sov: 9 },
+    current:  { visibility: 24, position: 4.5, accuracy: 85, sentiment: 65, sov: 14 }
+  },
+  {
+    id: "TEST-012",
+    name: "Routine Builder Content for Personalization Queries",
+    brand: "La Roche-Posay",
+    status: "Complete",
+    startDate: "2026-01-10",
+    dueDate: "2026-02-10",
+    durationDays: 30,
+    dayNumber: 30,
+    engines: ["ChatGPT", "Gemini"],
+    contentType: "Interactive / Tool Pages",
+    urlsImpacted: 5,
+    owner: "Digital Team",
+    hypothesis: {
+      ifWe: "Create skin-type-specific routine pages with structured product recommendation data",
+      to: "/routines/oily-skin, /routines/sensitive-skin, /routines/dry-skin",
+      then: "AI engines will recommend our products when users ask for personalized skincare routines",
+      because: "Structured recommendation content maps directly to personalization query patterns"
+    },
+    kpiTargets: { visibility: 55, position: 1, accuracy: 95, sentiment: 85, sov: 40 },
+    baseline: { visibility: 22, position: 4.8, accuracy: 70, sentiment: 62, sov: 11 },
+    current:  { visibility: 61, position: 1.3, accuracy: 96, sentiment: 88, sov: 44 }
+  }
+];
+
+// ============================================================
+// ASANA API INTEGRATION LAYER
+// ============================================================
+const SAMPLE_TESTS = [...TESTS]; // Keep original sample data
+let activeDataSource = localStorage.getItem('geo_data_source') || 'sample';
+
+// Parse an Asana task into our dashboard format
+function parseAsanaTask(task) {
+  const notes = task.notes || '';
+
+  // Parse structured fields from notes (format: "KEY: value")
+  const parseField = (key) => {
+    const regex = new RegExp(`^${key}:\\s*(.+)$`, 'mi');
+    const match = notes.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  // Parse section blocks (e.g., lines between "--- HYPOTHESIS ---" and next "---")
+  const parseBlock = (blockName) => {
+    const regex = new RegExp(`---\\s*${blockName}\\s*---\\n([\\s\\S]*?)(?=\\n---\\s|$)`, 'i');
+    const match = notes.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  // Map Asana completion to status
+  let status = 'Planned';
+  const statusField = parseField('Status');
+  if (statusField) {
+    status = statusField;
+  } else if (task.completed) {
+    status = 'Complete';
+  }
+
+  // Parse engines from comma-separated string
+  const enginesStr = parseField('Engines') || parseField('AI Engines');
+  const engines = enginesStr ? enginesStr.split(',').map(e => e.trim()).filter(Boolean) : ['Perplexity'];
+
+  // Parse numeric values with fallback
+  const num = (str, fallback = 0) => {
+    const n = parseFloat(str);
+    return isNaN(n) ? fallback : n;
+  };
+
+  // Parse hypothesis block
+  const hypoBlock = parseBlock('HYPOTHESIS');
+  const parseHypo = (key) => {
+    const regex = new RegExp(`${key}:\\s*(.+)`, 'i');
+    const match = hypoBlock.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  // Parse KPI blocks
+  const parseKpis = (blockName) => {
+    const block = parseBlock(blockName);
+    return {
+      visibility: num(block.match(/Visibility:\s*([\d.]+)/i)?.[1]),
+      position: num(block.match(/Position:\s*#?([\d.]+)/i)?.[1]),
+      accuracy: num(block.match(/Accuracy:\s*([\d.]+)/i)?.[1]),
+      sentiment: num(block.match(/Sentiment:\s*([\d.]+)/i)?.[1]),
+      sov: num(block.match(/(?:SoV|Share of Voice):\s*([\d.]+)/i)?.[1]),
+    };
+  };
+
+  // Calculate duration and day number
+  const startDate = parseField('Start Date') || task.created_at?.split('T')[0] || '';
+  const dueDate = task.due_on || '';
+  const now = new Date();
+  const start = startDate ? new Date(startDate) : now;
+  const due = dueDate ? new Date(dueDate) : now;
+  const durationDays = Math.max(1, Math.round((due - start) / (1000 * 60 * 60 * 24)));
+  const dayNumber = Math.max(0, Math.min(durationDays, Math.round((now - start) / (1000 * 60 * 60 * 24))));
+
+  return {
+    id: parseField('Test ID') || `ASANA-${task.gid.slice(-3)}`,
+    asanaGid: task.gid,
+    name: task.name || 'Untitled Test',
+    brand: parseField('Brand') || 'Unknown',
+    status,
+    startDate,
+    dueDate,
+    durationDays,
+    dayNumber: status === 'Planned' ? 0 : dayNumber,
+    engines,
+    contentType: parseField('Content Type') || 'General',
+    urlsImpacted: num(parseField('URLs Impacted'), 1),
+    owner: task.assignee?.name || parseField('Owner') || 'Unassigned',
+    hypothesis: {
+      ifWe: parseHypo('IF WE') || parseHypo('IF'),
+      to: parseHypo('TO'),
+      then: parseHypo('THEN'),
+      because: parseHypo('BECAUSE'),
+    },
+    kpiTargets: parseKpis('TARGETS'),
+    baseline: parseKpis('BASELINE'),
+    current: parseKpis('CURRENT'),
+  };
+}
+
+// Fetch all tasks from an Asana project
+async function fetchAsanaTasks(pat, projectGid) {
+  const url = `https://app.asana.com/api/1.0/tasks?project=${projectGid}&opt_fields=name,notes,completed,due_on,assignee.name,created_at&limit=100`;
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${pat}` }
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.errors?.[0]?.message || `Asana API error: ${response.status}`);
+  }
+  const json = await response.json();
+  return json.data || [];
+}
+
+// Settings panel
+function toggleSettings() {
+  const overlay = document.getElementById('settings-overlay');
+  overlay.classList.toggle('hidden');
+  if (!overlay.classList.contains('hidden')) {
+    updateSettingsUI();
+  }
+}
+
+function updateSettingsUI() {
+  const source = activeDataSource;
+  const btnSample = document.getElementById('btn-src-sample');
+  const btnAsana = document.getElementById('btn-src-asana');
+  const asanaSettings = document.getElementById('asana-settings');
+  const sampleSettings = document.getElementById('sample-settings');
+
+  btnSample.className = `flex-1 px-4 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${source === 'sample' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`;
+  btnAsana.className = `flex-1 px-4 py-2 text-sm font-semibold rounded-lg border-2 transition-colors ${source === 'asana' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`;
+  asanaSettings.classList.toggle('hidden', source !== 'asana');
+  sampleSettings.classList.toggle('hidden', source !== 'sample');
+
+  // Restore saved PAT and project GID
+  const savedPat = localStorage.getItem('geo_asana_pat') || '';
+  const savedProject = localStorage.getItem('geo_asana_project') || '1213363973380302';
+  document.getElementById('input-asana-pat').value = savedPat;
+  document.getElementById('input-asana-project').value = savedProject;
+}
+
+function setDataSource(source) {
+  activeDataSource = source;
+  localStorage.setItem('geo_data_source', source);
+  updateSettingsUI();
+
+  if (source === 'sample') {
+    TESTS.length = 0;
+    TESTS.push(...SAMPLE_TESTS);
+    document.getElementById('sync-indicator').classList.add('hidden');
+    populateFilters();
+    renderTable();
+  }
+}
+
+async function testAsanaConnection() {
+  const pat = document.getElementById('input-asana-pat').value.trim();
+  const projectGid = document.getElementById('input-asana-project').value.trim();
+  const statusEl = document.getElementById('asana-status');
+  const btn = document.getElementById('btn-test-asana');
+
+  if (!pat || !projectGid) {
+    statusEl.className = 'text-sm p-3 rounded-lg bg-red-50 text-red-700';
+    statusEl.textContent = 'Please enter both a PAT and Project GID.';
+    statusEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.textContent = 'Connecting...';
+  btn.disabled = true;
+  statusEl.classList.add('hidden');
+
+  try {
+    const tasks = await fetchAsanaTasks(pat, projectGid);
+
+    if (tasks.length === 0) {
+      statusEl.className = 'text-sm p-3 rounded-lg bg-amber-50 text-amber-700';
+      statusEl.textContent = `Connected successfully but found 0 tasks in project. Add tasks to Asana to see them here.`;
+      statusEl.classList.remove('hidden');
+    } else {
+      const parsed = tasks.map(parseAsanaTask);
+      TESTS.length = 0;
+      TESTS.push(...parsed);
+
+      // Save credentials
+      localStorage.setItem('geo_asana_pat', pat);
+      localStorage.setItem('geo_asana_project', projectGid);
+
+      // Update UI
+      document.getElementById('sync-indicator').classList.remove('hidden');
+      document.getElementById('sync-indicator').classList.add('flex');
+      document.getElementById('sync-label').textContent = `Asana (${tasks.length})`;
+      populateFilters();
+      renderTable();
+
+      statusEl.className = 'text-sm p-3 rounded-lg bg-green-50 text-green-700';
+      statusEl.textContent = `Synced ${tasks.length} test(s) from Asana. Dashboard updated.`;
+      statusEl.classList.remove('hidden');
+    }
+  } catch (err) {
+    statusEl.className = 'text-sm p-3 rounded-lg bg-red-50 text-red-700';
+    statusEl.textContent = `Error: ${err.message}`;
+    statusEl.classList.remove('hidden');
+  }
+
+  btn.textContent = 'Test Connection & Sync';
+  btn.disabled = false;
+}
+
+// Auto-connect on load if credentials are saved
+async function autoConnectAsana() {
+  if (activeDataSource !== 'asana') return;
+  const pat = localStorage.getItem('geo_asana_pat');
+  const projectGid = localStorage.getItem('geo_asana_project');
+  if (!pat || !projectGid) return;
+
+  try {
+    const tasks = await fetchAsanaTasks(pat, projectGid);
+    if (tasks.length > 0) {
+      const parsed = tasks.map(parseAsanaTask);
+      TESTS.length = 0;
+      TESTS.push(...parsed);
+      document.getElementById('sync-indicator').classList.remove('hidden');
+      document.getElementById('sync-indicator').classList.add('flex');
+      document.getElementById('sync-label').textContent = `Asana (${tasks.length})`;
+      populateFilters();
+      renderTable();
+    }
+  } catch (e) {
+    // Silent fail on auto-connect; user can manually reconnect
+    console.warn('Asana auto-connect failed:', e.message);
+  }
+}
+
+// ============================================================
+// VIEW MANAGEMENT
+// ============================================================
+let currentView = 'list';
+let radarChart = null;
+let barChart = null;
+
+function showView(view, testId) {
+  currentView = view;
+  document.getElementById('view-list').classList.toggle('hidden', view !== 'list');
+  document.getElementById('view-detail').classList.toggle('hidden', view !== 'detail');
+
+  if (view === 'list') {
+    document.getElementById('breadcrumb').textContent = '';
+    renderTable();
+  } else if (view === 'detail' && testId) {
+    const test = TESTS.find(t => t.id === testId);
+    if (test) renderDetail(test);
+  }
+}
+
+// ============================================================
+// LIST VIEW RENDERING
+// ============================================================
+function renderTable() {
+  const statusFilter = document.getElementById('filter-status').value;
+  const brandFilter = document.getElementById('filter-brand').value;
+  const engineFilter = document.getElementById('filter-engine').value;
+  const search = document.getElementById('search-box').value.toLowerCase();
+
+  let filtered = TESTS.filter(t => {
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (brandFilter !== 'all' && t.brand !== brandFilter) return false;
+    if (engineFilter !== 'all' && !t.engines.includes(engineFilter)) return false;
+    if (search && !(t.name.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || t.brand.toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tests-tbody');
+  tbody.innerHTML = filtered.map(t => {
+    const statusColors = {
+      'Running': 'bg-green-100 text-green-700',
+      'Complete': 'bg-blue-100 text-blue-700',
+      'Planned': 'bg-amber-100 text-amber-700',
+      'Paused': 'bg-slate-100 text-slate-500'
+    };
+    const statusDots = {
+      'Running': 'bg-green-500',
+      'Complete': 'bg-blue-500',
+      'Planned': 'bg-amber-500',
+      'Paused': 'bg-slate-400'
+    };
+
+    const visDelta = t.current.visibility - t.baseline.visibility;
+    const posDelta = t.baseline.position - t.current.position;
+    const accDelta = t.current.accuracy - t.baseline.accuracy;
+    const sovDelta = t.current.sov - t.baseline.sov;
+
+    const deltaArrow = (val, invert) => {
+      if (val === 0) return '<span class="text-slate-400">-</span>';
+      const isGood = invert ? val < 0 : val > 0;
+      const color = isGood ? 'text-green-600' : 'text-red-500';
+      const arrow = val > 0 ? '&uarr;' : '&darr;';
+      return `<span class="${color} text-[10px] font-bold">${arrow}${Math.abs(val).toFixed(val % 1 === 0 ? 0 : 1)}</span>`;
+    };
+
+    const dueFormatted = t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+
+    return `
+      <tr class="border-b border-slate-50 row-hover transition-colors" onclick="showView('detail','${t.id}')">
+        <td class="px-4 py-3 text-xs font-mono text-slate-400">${t.id.replace('TEST-','')}</td>
+        <td class="px-4 py-3">
+          <div class="text-sm font-semibold text-slate-800 leading-tight">${t.name}</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">${t.contentType} &middot; ${t.urlsImpacted} URLs</div>
+        </td>
+        <td class="px-4 py-3 text-xs font-medium text-slate-600">${t.brand}</td>
+        <td class="px-4 py-3">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full ${statusColors[t.status]}">
+            <span class="status-dot ${statusDots[t.status]}"></span>
+            ${t.status}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-[11px] text-slate-500">${t.engines.slice(0,2).join(', ')}${t.engines.length > 2 ? ' +' + (t.engines.length-2) : ''}</td>
+        <td class="px-4 py-3 text-center">
+          <div class="text-sm font-bold text-slate-800">${t.current.visibility}%</div>
+          <div>${deltaArrow(visDelta)}</div>
+        </td>
+        <td class="px-4 py-3 text-center">
+          <div class="text-sm font-bold text-slate-800">#${t.current.position}</div>
+          <div>${deltaArrow(posDelta)}</div>
+        </td>
+        <td class="px-4 py-3 text-center">
+          <div class="text-sm font-bold text-slate-800">${t.current.accuracy}%</div>
+          <div>${deltaArrow(accDelta)}</div>
+        </td>
+        <td class="px-4 py-3 text-center">
+          <div class="text-sm font-bold text-slate-800">${t.current.sov}%</div>
+          <div>${deltaArrow(sovDelta)}</div>
+        </td>
+        <td class="px-4 py-3 text-xs text-slate-500">${dueFormatted}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Stats
+  document.getElementById('stat-total').textContent = TESTS.length;
+  document.getElementById('stat-running').textContent = TESTS.filter(t => t.status === 'Running').length;
+  document.getElementById('stat-complete').textContent = TESTS.filter(t => t.status === 'Complete').length;
+  document.getElementById('stat-planned').textContent = TESTS.filter(t => t.status === 'Planned').length;
+}
+
+function populateFilters() {
+  const brands = [...new Set(TESTS.map(t => t.brand))].sort();
+  const engines = [...new Set(TESTS.flatMap(t => t.engines))].sort();
+
+  const brandSelect = document.getElementById('filter-brand');
+  const savedBrand = brandSelect.value;
+  brandSelect.innerHTML = '<option value="all">All Brands</option>';
+  brands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b; opt.textContent = b;
+    brandSelect.appendChild(opt);
+  });
+  brandSelect.value = savedBrand || 'all';
+
+  const engineSelect = document.getElementById('filter-engine');
+  const savedEngine = engineSelect.value;
+  engineSelect.innerHTML = '<option value="all">All Engines</option>';
+  engines.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e; opt.textContent = e;
+    engineSelect.appendChild(opt);
+  });
+  engineSelect.value = savedEngine || 'all';
+}
+
+// ============================================================
+// DETAIL VIEW RENDERING
+// ============================================================
+function renderDetail(test) {
+  document.getElementById('breadcrumb').textContent = `/ ${test.id}: ${test.name}`;
+
+  // Header
+  document.getElementById('detail-id-badge').textContent = test.id;
+  document.getElementById('detail-title').textContent = test.name;
+  document.getElementById('detail-bg-number').textContent = '#' + test.id.replace('TEST-','');
+
+  const statusColors = {
+    'Running': 'bg-green-100 text-green-700',
+    'Complete': 'bg-blue-100 text-blue-700',
+    'Planned': 'bg-amber-100 text-amber-700',
+    'Paused': 'bg-slate-100 text-slate-500'
+  };
+  const badge = document.getElementById('detail-status-badge');
+  badge.className = `text-[10px] font-bold px-2 py-1 rounded-full ${statusColors[test.status]}`;
+  badge.textContent = test.status;
+
+  document.getElementById('detail-day-badge').textContent = test.status === 'Planned' ? 'Not Started' : `Day ${test.dayNumber} of ${test.durationDays}`;
+
+  // KPI Cards
+  const metrics = [
+    { label: 'Visibility', key: 'visibility', suffix: '%', target: test.kpiTargets.visibility + '%' },
+    { label: 'Position', key: 'position', prefix: '#', target: 'Top ' + test.kpiTargets.position, invert: true },
+    { label: 'Accuracy', key: 'accuracy', suffix: '%', target: test.kpiTargets.accuracy + '%' },
+    { label: 'Sentiment', key: 'sentiment', suffix: '', target: (test.kpiTargets.sentiment/10).toFixed(1) + '+' },
+    { label: 'Share of Voice', key: 'sov', suffix: '%', target: test.kpiTargets.sov + '%' },
+  ];
+
+  document.getElementById('detail-kpi-cards').innerHTML = metrics.map(m => {
+    const curr = test.current[m.key];
+    const base = test.baseline[m.key];
+    const delta = m.invert ? (base - curr) : (curr - base);
+    const isPositive = delta > 0;
+    const deltaColor = delta === 0 ? 'text-slate-400' : (isPositive ? 'text-green-600' : 'text-red-500');
+    const arrow = delta === 0 ? '' : (isPositive ? '&uarr; ' : '&darr; ');
+    const val = m.prefix ? m.prefix + curr : curr + (m.suffix || '');
+
+    return `
+      <div class="bg-white p-4 rounded-xl border border-slate-200 kpi-mini">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">${m.label}</p>
+        <div class="flex items-baseline gap-2 mt-1">
+          <span class="text-xl font-black text-slate-800">${val}</span>
+          <span class="${deltaColor} text-xs font-bold">${arrow}${Math.abs(delta).toFixed(delta % 1 === 0 ? 0 : 1)}</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-1">Target: ${m.target}</p>
+      </div>
+    `;
+  }).join('');
+
+  // Hypothesis
+  const h = test.hypothesis;
+  document.getElementById('detail-hypothesis').innerHTML = `
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="flex-none"><span class="bg-indigo-600 text-white px-4 py-1.5 rounded-full font-black text-[11px] inline-block">IF WE</span></div>
+      <div class="flex-1 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-r text-slate-700 leading-relaxed">${h.ifWe}</div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="flex-none"><span class="bg-slate-600 text-white px-4 py-1.5 rounded-full font-black text-[11px] inline-block">TO</span></div>
+      <div class="flex-1 p-4 bg-slate-50 border-l-4 border-slate-400 rounded-r text-slate-600 font-mono text-sm">${h.to}</div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="flex-none"><span class="bg-purple-600 text-white px-4 py-1.5 rounded-full font-black text-[11px] inline-block">THEN</span></div>
+      <div class="flex-1 p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r text-slate-700 leading-relaxed">${h.then}</div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="flex-none"><span class="bg-green-700 text-white px-4 py-1.5 rounded-full font-black text-[11px] inline-block">BECAUSE</span></div>
+      <div class="flex-1 p-4 bg-green-50 border-l-4 border-green-500 rounded-r text-slate-600 leading-relaxed">${h.because}</div>
+    </div>
+  `;
+
+  // Context
+  const contextItems = [
+    ['Brand', test.brand],
+    ['AI Engine(s)', test.engines.join(', ')],
+    ['Content Type', test.contentType],
+    ['URLs Impacted', test.urlsImpacted],
+    ['Owner', test.owner],
+    ['Start Date', test.startDate ? new Date(test.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'],
+    ['Due Date', test.dueDate ? new Date(test.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'],
+  ];
+  document.getElementById('detail-context').innerHTML = contextItems.map(([label, val]) =>
+    `<div class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">${label}</span><span class="font-medium">${val}</span></div>`
+  ).join('');
+
+  // KPI Matrix Table
+  const matrixRows = metrics.map(m => {
+    const curr = test.current[m.key];
+    const base = test.baseline[m.key];
+    const target = test.kpiTargets[m.key];
+    const delta = m.invert ? (base - curr) : (curr - base);
+    const isPositive = delta > 0;
+    const progress = m.invert
+      ? Math.min(100, Math.max(0, ((base - curr) / (base - target)) * 100))
+      : Math.min(100, Math.max(0, ((curr - base) / (target - base)) * 100));
+    const progressColor = progress >= 80 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-400';
+    const deltaColor = delta === 0 ? 'text-slate-400' : (isPositive ? 'text-green-600' : 'text-red-500');
+    const baseVal = m.prefix ? m.prefix + base : base + (m.suffix || '');
+    const currVal = m.prefix ? m.prefix + curr : curr + (m.suffix || '');
+    const targetVal = m.prefix ? m.prefix + target : target + (m.suffix || '');
+
+    return `
+      <tr>
+        <td class="px-5 py-3 font-semibold text-indigo-700">${m.label}</td>
+        <td class="px-5 py-3 text-slate-500">${baseVal}</td>
+        <td class="px-5 py-3 font-bold text-slate-800">${currVal}</td>
+        <td class="px-5 py-3 text-green-600 font-semibold">${targetVal}</td>
+        <td class="px-5 py-3 ${deltaColor} font-bold">${delta > 0 ? '+' : ''}${delta.toFixed(delta % 1 === 0 ? 0 : 1)}</td>
+        <td class="px-5 py-3">
+          <div class="w-full bg-slate-100 rounded-full h-1.5">
+            <div class="metric-bar ${progressColor}" style="width: ${Math.max(0, progress).toFixed(0)}%"></div>
+          </div>
+          <span class="text-[10px] text-slate-400">${Math.max(0, progress).toFixed(0)}%</span>
+        </td>
+      </tr>
+    `;
+  });
+  document.getElementById('detail-kpi-matrix').innerHTML = matrixRows.join('');
+
+  // Charts
+  renderDetailCharts(test);
+}
+
+function renderDetailCharts(test) {
+  // Destroy previous charts
+  if (radarChart) { radarChart.destroy(); radarChart = null; }
+  if (barChart) { barChart.destroy(); barChart = null; }
+
+  const labels = ['Visibility', 'Accuracy', 'Sentiment', 'Position', 'SoV'];
+  // Normalize position to 0-100 scale (lower is better, so invert)
+  const normPos = (val) => Math.max(0, Math.min(100, (1 - (val - 1) / 9) * 100));
+
+  const baselineData = [
+    test.baseline.visibility,
+    test.baseline.accuracy,
+    test.baseline.sentiment,
+    normPos(test.baseline.position),
+    test.baseline.sov
+  ];
+  const currentData = [
+    test.current.visibility,
+    test.current.accuracy,
+    test.current.sentiment,
+    normPos(test.current.position),
+    test.current.sov
+  ];
+
+  // Radar
+  const ctx1 = document.getElementById('detail-radar').getContext('2d');
+  radarChart = new Chart(ctx1, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Current',
+          data: currentData,
+          backgroundColor: 'rgba(79, 70, 229, 0.15)',
+          borderColor: '#4f46e5',
+          pointBackgroundColor: '#4f46e5',
+          borderWidth: 2
+        },
+        {
+          label: 'Baseline',
+          data: baselineData,
+          backgroundColor: 'rgba(148, 163, 184, 0.1)',
+          borderColor: '#94a3b8',
+          pointBackgroundColor: '#94a3b8',
+          borderWidth: 1,
+          borderDash: [4,4]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 25, font: { size: 10 } } } },
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+    }
+  });
+
+  // Bar (Delta)
+  const deltas = [
+    test.current.visibility - test.baseline.visibility,
+    test.current.accuracy - test.baseline.accuracy,
+    (test.current.sentiment - test.baseline.sentiment),
+    (test.baseline.position - test.current.position),
+    test.current.sov - test.baseline.sov
+  ];
+  const barColors = deltas.map(d => d >= 0 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)');
+  const barBorders = deltas.map(d => d >= 0 ? '#16a34a' : '#dc2626');
+
+  const ctx2 = document.getElementById('detail-bar').getContext('2d');
+  barChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: ['Visibility', 'Accuracy', 'Sentiment', 'Position', 'SoV'],
+      datasets: [{
+        label: 'Change from Baseline',
+        data: deltas,
+        backgroundColor: barColors,
+        borderColor: barBorders,
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { title: { display: true, text: 'Delta', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+        x: { grid: { display: false } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  populateFilters();
+  renderTable();
+  autoConnectAsana();
+});
+</script>
+
+</body>
+</html>

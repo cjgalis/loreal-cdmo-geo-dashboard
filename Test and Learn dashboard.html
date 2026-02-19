@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>GEO Lab: KPI-Driven Experiment Manager</title>
+ <script src="https://cdn.tailwindcss.com"></script>
+ <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+ <style>
+ body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+ .chart-container { position: relative; width: 100%; height: 300px; max-height: 400px; margin: auto; }
+ .nav-active { background-color: #e0e7ff; color: #4338ca; border-left: 4px solid #4338ca; }
+ .fade-in { animation: fadeIn 0.5s ease-in-out; }
+ @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+ .kpi-card:hover { transform: translateY(-2px); transition: all 0.2s ease; }
+ .custom-scroll::-webkit-scrollbar { width: 6px; }
+ .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+ .custom-scroll::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 3px; }
+ </style>
+ <!-- Chosen Palette: Slate & Indigo. A professional research aesthetic that uses deep blues for trust and slate for structural clarity. -->
+ <!-- Application Structure Plan:
+ 1. Dashboard Overview: Now features a "KPI Snapshot" as the focal point, showing current progress against the primary goals defined in the setup.
+ 2. Experiment Setup (Formerly Hypothesis): A combined view for the IF/THEN/BECAUSE logic and a new "KPI Definition Matrix." This forces the researcher to define success parameters (e.g., Answer Position vs. Accuracy) at the start.
+ 3. Prompt Library: Maintains the intent mapping but links specific prompts back to their associated KPIs.
+ 4. Implementation Log: Tracking the technical levers pulled.
+ 5. Results & Analysis: Dynamic data visualization that maps directly back to the KPIs defined in Section 2.
+ -->
+ <!-- Visualization & Content Choices:
+ - KPI Matrix: A structured HTML table with JS-driven detail expansion for metric definitions.
+ - Charts: Chart.js Radar and Bar charts to compare multi-dimensional KPIs like Sentiment, Accuracy, and Position.
+ - Interaction: Functional sidebar navigation, state-driven content updates, and interactive KPI cards.
+ - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. Icons are text/emoji based.
+ -->
+ <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="text-slate-700">
+
+ <div class="flex h-screen overflow-hidden">
+ <!-- Sidebar Navigation -->
+ <aside class="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col z-10">
+ <div class="p-6 border-b border-slate-100">
+ <h1 class="text-xl font-bold text-slate-800 tracking-tight">🧪 GEO Lab</h1>
+ <p class="text-xs text-slate-500 mt-1 uppercase">Experiment Framework</p>
+ </div>
+ <nav class="flex-1 overflow-y-auto py-4">
+ <ul class="space-y-1">
+ <li><button onclick="navTo('dashboard')" id="nav-dashboard" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors nav-active">📊 Dashboard Summary</button></li>
+ <li><button onclick="navTo('setup')" id="nav-setup" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">⚙️ Experiment Setup</button></li>
+ <li><button onclick="navTo('prompts')" id="nav-prompts" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">💬 Prompt Library</button></li>
+ <li><button onclick="navTo('implementation')" id="nav-implementation" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">🛠️ Implementation</button></li>
+ <li><button onclick="navTo('results')" id="nav-results" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">📈 Results Analysis</button></li>
+ <li><button onclick="navTo('conclusion')" id="nav-conclusion" class="w-full text-left px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">🏁 Findings & Verdict</button></li>
+ </ul>
+ </nav>
+ <div class="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-400">
+ v2.1 / KPI-First Architecture
+ </div>
+ </aside>
+
+ <!-- Mobile Header -->
+ <div class="md:hidden fixed top-0 w-full bg-white border-b border-slate-200 z-50 px-4 py-3 flex justify-between items-center">
+ <span class="font-bold text-slate-800">🧪 GEO Lab</span>
+ <button onclick="toggleMobile()" class="text-slate-600 text-xl">☰</button>
+ </div>
+ <div id="mobile-menu" class="hidden fixed inset-0 bg-white z-40 pt-16 px-4 pb-4 md:hidden flex flex-col space-y-2">
+ <button onclick="navTo('dashboard'); toggleMobile()" class="block p-3 bg-slate-50 rounded">Dashboard Summary</button>
+ <button onclick="navTo('setup'); toggleMobile()" class="block p-3 bg-slate-50 rounded">Experiment Setup</button>
+ <button onclick="navTo('results'); toggleMobile()" class="block p-3 bg-slate-50 rounded">Results</button>
+ </div>
+
+ <!-- Main Content Area -->
+ <main class="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-8 mt-12 md:mt-0">
+
+ <!-- SECTION 1: DASHBOARD SUMMARY -->
+ <section id="dashboard" class="fade-in max-w-6xl mx-auto space-y-6">
+ <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+ <div>
+ <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Experiment #001: Citadel</span>
+ <h2 class="text-3xl font-extrabold text-slate-900 mt-2">Executive Summary</h2>
+ <p class="text-slate-500 mt-2 max-w-2xl">A high-level view of the experiment status and core KPI targets. This section validates if the test is meeting the success thresholds defined in the setup.</p>
+ </div>
+ <div class="flex gap-2">
+ <div class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">🟢 Running</div>
+ <div class="px-3 py-1 bg-slate-200 text-slate-700 text-xs font-bold rounded-full">Day 14 of 30</div>
+ </div>
+ </div>
+
+ <!-- KPI Quick Cards -->
+ <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+ <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 kpi-card">
+ <p class="text-xs text-slate-400 font-bold uppercase tracking-tight">Primary KPI: Visibility</p>
+ <div class="flex items-baseline gap-2 mt-1">
+ <span class="text-2xl font-black text-slate-800">45%</span>
+ <span class="text-green-500 text-xs font-bold">↑ 15%</span>
+ </div>
+ <p class="text-[10px] text-slate-500 mt-2 italic">Target: 60% Citation Rate</p>
+ </div>
+ <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 kpi-card">
+ <p class="text-xs text-slate-400 font-bold uppercase tracking-tight">Avg. Answer Position</p>
+ <div class="flex items-baseline gap-2 mt-1">
+ <span class="text-2xl font-black text-slate-800">#1.4</span>
+ <span class="text-indigo-500 text-xs font-bold">New Metric</span>
+ </div>
+ <p class="text-[10px] text-slate-500 mt-2 italic">Target: Top 2 Placement</p>
+ </div>
+ <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 kpi-card border-l-4 border-l-indigo-500">
+ <p class="text-xs text-slate-400 font-bold uppercase tracking-tight">Sentiment Score</p>
+ <div class="flex items-baseline gap-2 mt-1">
+ <span class="text-2xl font-black text-slate-800">8.2</span>
+ <span class="text-slate-400 text-xs font-bold">Stable</span>
+ </div>
+ <p class="text-[10px] text-slate-500 mt-2 italic">Target: 8.0+ (Authoritative)</p>
+ </div>
+ <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 kpi-card">
+ <p class="text-xs text-slate-400 font-bold uppercase tracking-tight">Answer Accuracy</p>
+ <div class="flex items-baseline gap-2 mt-1">
+ <span class="text-2xl font-black text-slate-800">98%</span>
+ <span class="text-green-500 text-xs font-bold">↑ 2%</span>
+ </div>
+ <p class="text-[10px] text-slate-500 mt-2 italic">Target: 0% Hallucination</p>
+ </div>
+ </div>
+
+ <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+ <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+ <h3 class="font-bold text-slate-800 flex items-center gap-2">🎯 Primary Objective</h3>
+ <p class="text-slate-600 mt-4 leading-relaxed">
+ Positioning the company as the <span class="bg-yellow-100 px-1 font-bold">Authoritative Technical Source</span> for Enterprise Security queries. We are measuring the impact of citation density on the engine's "Source Carousel" and the verbatim accuracy of its paraphrasing.
+ </p>
+ <div class="mt-6 flex flex-wrap gap-2">
+ <span class="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-500 font-mono">Target: Perplexity Pro</span>
+ <span class="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs text-slate-500 font-mono">Channel: Technical Documentation</span>
+ </div>
+ </div>
+ <div class="bg-slate-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+ <div class="relative z-10">
+ <h3 class="font-bold text-indigo-300">Test Context</h3>
+ <ul class="mt-4 space-y-3 text-sm">
+ <li class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Owner</span> <span>Security Team</span></li>
+ <li class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Baseline Date</span> <span>Oct 15, 2023</span></li>
+ <li class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">URLs Impacted</span> <span>12 Pages</span></li>
+ </ul>
+ </div>
+ <div class="absolute -right-4 -bottom-4 text-slate-800 opacity-50 font-black text-6xl select-none">#001</div>
+ </div>
+ </div>
+ </section>
+
+ <!-- SECTION 2: EXPERIMENT SETUP & KPI MATRIX -->
+ <section id="setup" class="hidden fade-in max-w-6xl mx-auto space-y-6">
+ <div class="mb-6">
+ <h2 class="text-3xl font-bold text-slate-900">Experiment Setup & Hypothesis</h2>
+ <p class="text-slate-600 mt-2 text-lg">Define the "If/Then" logic and the specific KPI thresholds that determine a "Success" verdict.</p>
+ </div>
+
+ <!-- Refined Hypothesis Controller -->
+ <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+ <div class="bg-slate-800 p-4 text-white font-mono text-xs flex justify-between">
+ <span>🧪 LOGIC_CONTROLLER.v2</span>
+ <span class="text-indigo-400">STATUS: VALIDATED</span>
+ </div>
+ <div class="p-6 md:p-10 space-y-8">
+ <div class="flex flex-col md:flex-row gap-6">
+ <div class="flex-none w-28"><span class="bg-indigo-600 text-white px-4 py-2 rounded-full font-black text-xs block text-center shadow-lg shadow-indigo-200">IF WE</span></div>
+ <div class="flex-1 p-6 bg-slate-50 border-l-4 border-indigo-600 rounded-r text-slate-800 font-medium text-lg leading-relaxed">
+ Add <span class="text-indigo-700 underline decoration-indigo-200">authoritative stats and direct peer-reviewed citations</span> to the core technical specification pages...
+ </div>
+ </div>
+
+ <div class="flex flex-col md:flex-row gap-6">
+ <div class="flex-none w-28"><span class="bg-purple-600 text-white px-4 py-2 rounded-full font-black text-xs block text-center shadow-lg shadow-purple-200">THEN</span></div>
+ <div class="flex-1 space-y-4">
+ <p class="text-slate-500 text-sm italic mb-2">We expect the following KPI shifts:</p>
+ <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+ <div class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-100 rounded">
+ <span class="text-purple-600 font-bold">1.</span>
+ <span class="text-sm font-semibold">Visibility: Citation rate > 60%</span>
+ </div>
+ <div class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-100 rounded">
+ <span class="text-purple-600 font-bold">2.</span>
+ <span class="text-sm font-semibold">Position: Top 2 source priority</span>
+ </div>
+ <div class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-100 rounded">
+ <span class="text-purple-600 font-bold">3.</span>
+ <span class="text-sm font-semibold">Accuracy: Elimination of "phantom facts"</span>
+ </div>
+ <div class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-100 rounded">
+ <span class="text-purple-600 font-bold">4.</span>
+ <span class="text-sm font-semibold">SoV: Displacement of Competitor X</span>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <div class="flex flex-col md:flex-row gap-6">
+ <div class="flex-none w-28"><span class="bg-slate-700 text-white px-4 py-2 rounded-full font-black text-xs block text-center">BECAUSE</span></div>
+ <div class="flex-1 p-6 bg-slate-100 rounded text-slate-600">
+ Current LLM weights prioritize <span class="font-bold">Fact Density</span> and <span class="font-bold">Citation Graph Connectivity</span> for technical and B2B queries.
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- KPI Matrix -->
+ <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+ <div class="p-6 border-b border-slate-100">
+ <h3 class="font-bold text-slate-800 text-lg">KPI Measurement Matrix</h3>
+ <p class="text-sm text-slate-500">The specific metrics we are tracking and how success is calculated.</p>
+ </div>
+ <div class="overflow-x-auto">
+ <table class="w-full text-left text-sm">
+ <thead class="bg-slate-50 border-b border-slate-200 text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+ <tr>
+ <th class="px-6 py-4">Metric Category</th>
+ <th class="px-6 py-4">Definition / Target</th>
+ <th class="px-6 py-4">Tracking Method</th>
+ <th class="px-6 py-4">Success Threshold</th>
+ </tr>
+ </thead>
+ <tbody class="divide-y divide-slate-100">
+ <tr>
+ <td class="px-6 py-4 font-bold text-indigo-700">Search Visibility</td>
+ <td class="px-6 py-4">Inclusion in AI Source Carousel</td>
+ <td class="px-6 py-4">Manual Audit / API Polling</td>
+ <td class="px-6 py-4 text-green-600 font-bold">> 6/10 Prompts</td>
+ </tr>
+ <tr>
+ <td class="px-6 py-4 font-bold text-indigo-700">Share of Voice</td>
+ <td class="px-6 py-4">Ratio of Brand vs. Competitor Mentions</td>
+ <td class="px-6 py-4">Prompt Response Analysis</td>
+ <td class="px-6 py-4 text-green-600 font-bold">> 40% Volume</td>
+ </tr>
+ <tr>
+ <td class="px-6 py-4 font-bold text-indigo-700">Answer Position</td>
+ <td class="px-6 py-4">Ordinal rank of cite in summary</td>
+ <td class="px-6 py-4">Sentence-level Parsing</td>
+ <td class="px-6 py-4 text-green-600 font-bold">1st or 2nd Sentence</td>
+ </tr>
+ <tr>
+ <td class="px-6 py-4 font-bold text-indigo-700">Accuracy</td>
+ <td class="px-6 py-4">Alignment with Ground Truth</td>
+ <td class="px-6 py-4">Manual Fact-Check</td>
+ <td class="px-6 py-4 text-green-600 font-bold">100% Match</td>
+ </tr>
+ </tbody>
+ </table>
+ </div>
+ </div>
+ </section>
+
+ <!-- SECTION 5: RESULTS ANALYSIS -->
+ <section id="results" class="hidden fade-in max-w-6xl mx-auto space-y-6">
+ <div class="mb-6">
+ <h2 class="text-3xl font-bold text-slate-900">KPI Performance Analysis</h2>
+ <p class="text-slate-600 mt-2">Mapping the post-test results back to our success thresholds.</p>
+ </div>
+
+ <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+ <!-- Chart 1: Citation Position Over Time -->
+ <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+ <h3 class="font-bold text-slate-800 mb-4">Average Citation Position</h3>
+ <div class="chart-container">
+ <canvas id="positionChart"></canvas>
+ </div>
+ <p class="text-xs text-center text-slate-500 mt-4">Lower is better. Tracking the shift from "Footer Source" to "Primary Citation."</p>
+ </div>
+
+ <!-- Chart 2: Metric Balanced Scorecard -->
+ <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+ <h3 class="font-bold text-slate-800 mb-4">GEO Performance Scorecard</h3>
+ <div class="chart-container">
+ <canvas id="radarChart"></canvas>
+ </div>
+ <p class="text-xs text-center text-slate-500 mt-4">Balanced view across Visibility, Accuracy, Sentiment, and Positioning.</p>
+ </div>
+ </div>
+
+ <!-- Findings Grid -->
+ <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div class="bg-indigo-50 border border-indigo-100 p-6 rounded-xl">
+ <h4 class="font-black text-indigo-900 text-sm uppercase mb-3">Key Finding: Positioning</h4>
+ <p class="text-slate-700 text-sm leading-relaxed italic">"By using bulleted factual claims (Fluency Optimization), we successfully moved from being a 'Footnote citation' (Source #8) to the 'Lead Answer' (Source #1) in 40% of test prompts."</p>
+ </div>
+ <div class="bg-green-50 border border-green-100 p-6 rounded-xl">
+ <h4 class="font-black text-green-900 text-sm uppercase mb-3">Key Finding: Accuracy</h4>
+ <p class="text-slate-700 text-sm leading-relaxed italic">"Schema markup (ClaimReview) directly eliminated the hallucination regarding our encryption speed. The AI now correctly quotes the '256-bit AES' spec verbatim."</p>
+ </div>
+ </div>
+ </section>
+
+ <!-- Other sections (Prompts, Implementation, Conclusion) remain visually consistent but follow the same Indigo theme -->
+ <!-- These would be populated via JS as in previous version -->
+ <section id="prompts" class="hidden fade-in max-w-6xl mx-auto"><div class="p-20 text-center text-slate-300">Prompt Module Active</div></section>
+ <section id="implementation" class="hidden fade-in max-w-6xl mx-auto"><div class="p-20 text-center text-slate-300">Implementation Module Active</div></section>
+ <section id="conclusion" class="hidden fade-in max-w-6xl mx-auto"><div class="p-20 text-center text-slate-300">Verdict Module Active</div></section>
+
+ </main>
+ </div>
+
+ <script>
+ // --- Navigation Logic ---
+ function navTo(sectionId) {
+ const sections = ['dashboard', 'setup', 'prompts', 'implementation', 'results', 'conclusion'];
+ sections.forEach(id => {
+ const el = document.getElementById(id);
+ if(el) el.classList.add('hidden');
+ });
+ document.getElementById(sectionId).classList.remove('hidden');
+
+ document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('nav-active'));
+ const activeBtn = document.getElementById(`nav-${sectionId}`);
+ if(activeBtn) activeBtn.classList.add('nav-active');
+
+ if(sectionId === 'results') renderCharts();
+ }
+
+ function toggleMobile() {
+ document.getElementById('mobile-menu').classList.toggle('hidden');
+ }
+
+ // --- Charting Logic ---
+ let chartsRendered = false;
+ function renderCharts() {
+ if(chartsRendered) return;
+
+ // Chart 1: Average Position Shift (Line Chart)
+ const ctx1 = document.getElementById('positionChart').getContext('2d');
+ new Chart(ctx1, {
+ type: 'line',
+ data: {
+ labels: ['Baseline', 'Week 1', 'Week 2', 'Current'],
+ datasets: [{
+ label: 'Avg. Rank (1 is best)',
+ data: [5.2, 3.8, 2.1, 1.4],
+ borderColor: '#4f46e5',
+ backgroundColor: 'rgba(79, 70, 229, 0.1)',
+ fill: true,
+ tension: 0.4,
+ pointBackgroundColor: '#4f46e5',
+ pointRadius: 6
+ }]
+ },
+ options: {
+ responsive: true,
+ maintainAspectRatio: false,
+ scales: {
+ y: { reverse: true, min: 1, max: 6, title: { display: true, text: 'Source Rank' } }
+ },
+ plugins: { legend: { display: false } }
+ }
+ });
+
+ // Chart 2: Radar Scorecard (Multi-dimensional KPIs)
+ const ctx2 = document.getElementById('radarChart').getContext('2d');
+ new Chart(ctx2, {
+ type: 'radar',
+ data: {
+ labels: ['Visibility', 'Accuracy', 'Sentiment', 'Position', 'SoV'],
+ datasets: [{
+ label: 'Post-Implementation',
+ data: [75, 98, 82, 90, 65],
+ backgroundColor: 'rgba(79, 70, 229, 0.2)',
+ borderColor: '#4f46e5',
+ pointBackgroundColor: '#4f46e5'
+ }, {
+ label: 'Baseline',
+ data: [20, 85, 70, 30, 15],
+ backgroundColor: 'rgba(203, 213, 225, 0.2)',
+ borderColor: '#94a3b8',
+ pointBackgroundColor: '#94a3b8'
+ }]
+ },
+ options: {
+ responsive: true,
+ maintainAspectRatio: false,
+ scales: {
+ r: { beginAtZero: true, max: 100 }
+ },
+ plugins: {
+ legend: { position: 'bottom' }
+ }
+ }
+ });
+
+ chartsRendered = true;
+ }
+
+ // Initialize state
+ window.onload = () => {
+ // navTo('dashboard');
+ };
+ </script>
+</body>
+</html>
